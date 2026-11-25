@@ -1,14 +1,14 @@
 # Raspberry Pi 3B – Rozpoznawanie gestów dłoni (C++ / OpenCV)
 
-System rozpoznawania gestów dłoni w czasie rzeczywistym, zoptymalizowany pod kątem minimalnego zużycia czasu procesora (CPU) na platformie Raspberry Pi 3 Model B. Projekt wykorzystuje klasyczne metody przetwarzania obrazu (Computer Vision), radzi sobie w warunkach słabego oświetlenia i wyświetla na ekranie ikony (emotikony) odpowiadające rozpoznanym gestom.
+System rozpoznawania gestów dłoni w czasie rzeczywistym, zoptymalizowany pod kątem minimalnego zużycia czasu procesora (CPU) na platformie Raspberry Pi 3 Model B. Projekt wykorzystuje klasyczne metody przetwarzania obrazu (Computer Vision) w przestrzeni barw YCrCb z korekcją słabego oświetlenia.
 
-Szczegółowy opis założeń i architektury znajduje się w dokumencie [Proof of Concept (POC.md)](docs/POC.md).
+Szczegółowy opis założeń, architektury i harmonogramu znajduje się w dokumencie [Proof of Concept (POC.md)](docs/POC.md).
 
-## Główne cechy
-* **Niskie zużycie CPU:** Implementacja w C++ kompilowana z flagami optymalizacji pod architekturę ARM Cortex-A53 (`-O3 -mcpu=cortex-a53`).
-* **Brak blokowania I/O:** Wielowątkowe przechwytywanie klatek (wzorzec Producent–Konsument) w rozdzielczości 320×240 (MJPG przez V4L2).
-* **Obsługa słabego oświetlenia:** Przetwarzanie w przestrzeni barw YCrCb z wyrównywaniem histogramu CLAHE wyłącznie na kanale jasności (`Y`).
-* **Wizualizacja gestów:** Nakładanie pre-wczytanych ikon PNG na obraz wyjściowy (z możliwością całkowitego wyłączenia w trybie `HEADLESS` na potrzeby benchmarków).
+## Główne cechy (obecna wersja)
+* **Niskie zużycie CPU:** Implementacja w C++17 kompilowana z flagami optymalizacji pod architekturę ARM Cortex-A53 (`-O3 -mcpu=cortex-a53`).
+* **Obsługa słabego oświetlenia:** Przetwarzanie w przestrzeni barw YCrCb z wyrównywaniem histogramu CLAHE wyłącznie na kanale jasności (`Y`) w rozdzielczości 320×240.
+* **Kalibracja na żywo:** Wbudowane suwaki OpenCV do strojenia maski koloru skóry pod konkretną kamerę i oświetlenie.
+* **Tryb Headless:** Możliwość kompilacji bez okien graficznych (`-DHEADLESS=ON`) na potrzeby pracy przez SSH i pomiarów wydajności.
 
 ## Wymagania
 
@@ -18,16 +18,15 @@ Szczegółowy opis założeń i architektury znajduje się w dokumencie [Proof o
 
 ### Oprogramowanie
 * Raspberry Pi OS (32-bit lub 64-bit)
-* Kompilator `g++` (wspierający C++17)
+* Kompilator `g++` (C++17) oraz `CMake`
 * `OpenCV 4.x` (`libopencv-dev`)
 * `v4l-utils` (do konfiguracji parametrów kamery)
-* `CMake` (opcjonalnie)
 
 ## Struktura repozytorium
 
 ```text
 rpi-gesture-recognition/
-├── assets/                 # Przeskalowane ikony PNG (np. 64x64 px) dla gestów
+├── assets/                 # (Planowane) Przeskalowane ikony PNG dla gestów
 ├── docs/
 │   └── POC.md              # Dokumentacja Proof of Concept
 ├── src/
@@ -43,7 +42,7 @@ rpi-gesture-recognition/
 
 ```bash
 sudo apt update
-sudo apt install libopencv-dev g++ pkg-config v4l-utils
+sudo apt install -y git cmake g++ pkg-config libopencv-dev v4l-utils
 ```
 
 2. Sklonuj repozytorium i przejdź do katalogu projektu:
@@ -53,35 +52,46 @@ git clone https://github.com/jfx21/rpi-gesture-recognition.git
 cd rpi-gesture-recognition
 ```
 
-3. Skompiluj kod źródłowy:
+3. Zbuduj projekt za pomocą CMake:
 
 ```bash
-g++ -O3 -mcpu=cortex-a53 src/main.cpp -o gesture_app $(pkg-config --cflags --libs opencv4) -lpthread
+mkdir -p build && cd build
+cmake ..
+make -j4
 ```
 
-*(Aby skompilować wersję bez interfejsu graficznego do pomiaru czystej wydajności algorytmu, dodaj flagę `-DHEADLESS`.)*
+*(Dla wersji bez interfejsu graficznego — np. przez SSH lub do benchmarków — użyj `cmake -DHEADLESS=ON ..` zamiast `cmake ..`.)*
 
 ## Konfiguracja kamery i uruchomienie
 
-Przed uruchomieniem w słabym świetle zaleca się zablokowanie automatycznego balansu bieli, aby zapobiec zmianom odcienia skóry (które zaburzają progowanie YCrCb):
+Przed uruchomieniem w słabym świetle zaleca się sprawdzenie obsługiwanych trybów kamery i zablokowanie automatycznego balansu bieli:
 
 ```bash
-v4l2-ctl --list-formats-ext
-v4l2-ctl -c white_balance_temperature_auto=0
+v4l2-ctl --device=/dev/video0 --list-formats-ext
+v4l2-ctl --device=/dev/video0 -c white_balance_temperature_auto=0
 ```
 
-Uruchomienie aplikacji:
+### Tryb standardowy
 
 ```bash
 ./gesture_app
 ```
 
-Naciśnięcie klawisza `ESC` zamyka program w trybie GUI.
+*(Jeśli uruchamiasz wersję GUI przez SSH, ale z podłączonym monitorem do Raspberry Pi, użyj `DISPLAY=:0 ./gesture_app`.)*
 
-## Benchmarki (do uzupełnienia po testach)
+### Tryb kalibracji progów YCrCb (wymaga GUI)
+
+```bash
+./gesture_app --calibrate
+```
+
+* Dostosuj suwaki `Y`, `Cr`, `Cb`, obserwując okno `Maska`.
+* Naciśnij **`s`**, aby zapisać progi do pliku `ycrcb_config.txt` (wczytywanego automatycznie przy kolejnych uruchomieniach).
+* Naciśnij **`ESC`**, aby zamknąć program.
+
+## Benchmarki (do uzupełnienia w Etapie 5)
 
 | Tryb działania | Rozdzielczość | Średni czas klatki [ms] | Średnie FPS | Zużycie CPU [%] |
 | --- | --- | --- | --- | --- |
 | Headless (bez GUI) | 320×240 | — | — | — |
-| GUI + Ikony PNG | 320×240 | — | — | — |
-```
+| GUI | 320×240 | — | — | — |
