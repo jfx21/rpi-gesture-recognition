@@ -130,16 +130,27 @@ int main(int argc, char** argv) {
 
         // Zliczanie palcow na podstawie defektow wypuklosci
         if (maxAreaIdx != -1) {
+            // Uzywamy oryginalnego konturu (brak samoprzeciec po approxPolyDP)
             const auto& handContour = contours[maxAreaIdx];
+
             std::vector<int> hullIndices;
             cv::convexHull(handContour, hullIndices, false);
 
             if (hullIndices.size() > 3) {
                 std::vector<cv::Vec4i> defects;
-                cv::convexityDefects(handContour, hullIndices, defects);
+                try {
+                    cv::convexityDefects(handContour, hullIndices, defects);
+                } catch (const cv::Exception&) {
+                    defects.clear(); // Pominiecie uszkodzonej klatki zamiast crashu
+                }
 
                 cv::Rect boundRect = cv::boundingRect(handContour);
                 int validDefects = 0;
+
+#ifndef HEADLESS
+                cv::rectangle(frame, boundRect, cv::Scalar(255, 0, 0), 1);
+                cv::drawContours(frame, std::vector<std::vector<cv::Point>>{handContour}, -1, cv::Scalar(0, 255, 0), 1);
+#endif
 
                 for (const auto& d : defects) {
                     cv::Point start = handContour[d[0]];
@@ -147,8 +158,16 @@ int main(int argc, char** argv) {
                     cv::Point far = handContour[d[2]];
                     float depth = d[3] / 256.0f;
 
-                    if (depth > boundRect.height * 0.15f && calculateAngle(start, end, far) < 90.0) {
+                    bool isAboveWrist = far.y < (boundRect.y + boundRect.height * 0.75);
+
+                    if (isAboveWrist &&
+                        depth > boundRect.height * 0.12f &&
+                        depth < boundRect.height * 0.60f &&
+                        calculateAngle(start, end, far) < 85.0) {
                         validDefects++;
+#ifndef HEADLESS
+                        cv::circle(frame, far, 4, cv::Scalar(0, 0, 255), -1);
+#endif
                     }
                 }
                 fingerCount = (validDefects > 0) ? std::min(5, validDefects + 1) : 0;
