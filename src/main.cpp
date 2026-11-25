@@ -1,8 +1,34 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
+#include <fstream>
 #include <chrono>
 #include <cmath>
 #include <vector>
+#include <string>
+
+struct SkinThresholds {
+    int yMin = 20, yMax = 255;
+    int crMin = 133, crMax = 173;
+    int cbMin = 77, cbMax = 127;
+};
+
+const std::string CONFIG_FILE = "ycrcb_config.txt";
+
+bool loadThresholds(const std::string& filename, SkinThresholds& t) {
+    std::ifstream file(filename);
+    if (!file.is_open()) return false;
+    file >> t.yMin >> t.yMax >> t.crMin >> t.crMax >> t.cbMin >> t.cbMax;
+    return !file.fail();
+}
+
+bool saveThresholds(const std::string& filename, const SkinThresholds& t) {
+    std::ofstream file(filename);
+    if (!file.is_open()) return false;
+    file << t.yMin << " " << t.yMax << " "
+         << t.crMin << " " << t.crMax << " "
+         << t.cbMin << " " << t.cbMax << "\n";
+    return true;
+}
 
 double calculateAngle(const cv::Point& s, const cv::Point& e, const cv::Point& f) {
     double a = cv::norm(e - s);
@@ -14,7 +40,28 @@ double calculateAngle(const cv::Point& s, const cv::Point& e, const cv::Point& f
     return std::acos(cosAngle) * 180.0 / CV_PI;
 }
 
-int main() {
+int main(int argc, char** argv) {
+    bool calibrateMode = false;
+    for (int i = 1; i < argc; i++) {
+        if (std::string(argv[i]) == "--calibrate") {
+            calibrateMode = true;
+        }
+    }
+
+#ifdef HEADLESS
+    if (calibrateMode) {
+        std::cerr << "Blad: Tryb --calibrate wymaga kompilacji z GUI (HEADLESS=OFF)." << std::endl;
+        return -1;
+    }
+#endif
+
+    SkinThresholds thresh;
+    if (loadThresholds(CONFIG_FILE, thresh)) {
+        std::cout << "Wczytano progi z " << CONFIG_FILE << std::endl;
+    } else {
+        std::cout << "Brak pliku " << CONFIG_FILE << " - uzywam progow domyslnych." << std::endl;
+    }
+
     cv::VideoCapture cap(0, cv::CAP_V4L2);
     if (!cap.isOpened()) {
         std::cerr << "Blad: Nie mozna otworzyc kamery." << std::endl;
@@ -28,11 +75,21 @@ int main() {
     cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(2.0, cv::Size(8, 8));
     cv::Mat morphKernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
 
+#ifndef HEADLESS
+    if (calibrateMode) {
+        cv::namedWindow("Kalibracja YCrCb", cv::WINDOW_AUTOSIZE);
+        cv::createTrackbar("Y min",  "Kalibracja YCrCb", &thresh.yMin,  255);
+        cv::createTrackbar("Y max",  "Kalibracja YCrCb", &thresh.yMax,  255);
+        cv::createTrackbar("Cr min", "Kalibracja YCrCb", &thresh.crMin, 255);
+        cv::createTrackbar("Cr max", "Kalibracja YCrCb", &thresh.crMax, 255);
+        cv::createTrackbar("Cb min", "Kalibracja YCrCb", &thresh.cbMin, 255);
+        cv::createTrackbar("Cb max", "Kalibracja YCrCb", &thresh.cbMax, 255);
+        std::cout << "Tryb kalibracji: nacisnij [s] aby zapisac progi, [ESC] aby wyjsc." << std::endl;
+    }
+#endif
+
     cv::Mat frame, ycrcb, mask;
     std::vector<cv::Mat> channels(3);
-
-    const cv::Scalar lowerSkin(20, 133, 77);
-    const cv::Scalar upperSkin(255, 173, 127);
 
     while (true) {
         if (!cap.read(frame) || frame.empty()) {
@@ -49,6 +106,8 @@ int main() {
 
         // Odszumianie, progowanie i morfologia
         cv::GaussianBlur(ycrcb, ycrcb, cv::Size(5, 5), 0);
+        cv::Scalar lowerSkin(thresh.yMin, thresh.crMin, thresh.cbMin);
+        cv::Scalar upperSkin(thresh.yMax, thresh.crMax, thresh.cbMax);
         cv::inRange(ycrcb, lowerSkin, upperSkin, mask);
         cv::morphologyEx(mask, mask, cv::MORPH_OPEN, morphKernel);
         cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, morphKernel);
@@ -99,15 +158,28 @@ int main() {
         auto tEnd = std::chrono::high_resolution_clock::now();
         double elapsedMs = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
 
-        std::cout << "Palce: " << fingerCount << " | Czas: " << elapsedMs << " ms   \r" << std::flush;
+        if (!calibrateMode) {
+            std::cout << "Palce: " << fingerCount << " | Czas: " << elapsedMs << " ms   \r" << std::flush;
+        }
 
 #ifndef HEADLESS
         cv::putText(frame, "Palce: " + std::to_string(fingerCount), cv::Point(10, 25),
                     cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
         cv::imshow("Podglad", frame);
         cv::imshow("Maska", mask);
-        if (cv::waitKey(1) == 27) {
+
+        int key = cv::waitKey(1);
+        if (key == 27) { // ESC
             break;
+        } else if (calibrateMode && (key == 's' || key == 'S')) {
+            if (saveThresholds(CONFIG_FILE, thresh)) {
+                std::cout << "Zapisano progi do " << CONFIG_FILE << ": "
+                          << thresh.yMin << " " << thresh.yMax << " "
+                          << thresh.crMin << " " << thresh.crMax << " "
+                          << thresh.cbMin << " " << thresh.cbMax << std::endl;
+            } else {
+                std::cerr << "Blad zapisu do pliku " << CONFIG_FILE << std::endl;
+            }
         }
 #endif
     }
