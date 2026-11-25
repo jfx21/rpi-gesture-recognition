@@ -47,7 +47,7 @@ System zostanie zweryfikowany w dwóch trybach — *headless* (czysty pomiar alg
 * **Niezawodności:** Porównanie skuteczności rozpoznawania (liczba poprawnych klasyfikacji dla gestów 0–5 palców) w dobrym oraz słabym oświetleniu.
 
 ## 6. Harmonogram realizacji (Etapy)
-* [ ] **Etap 1 (Setup):** Konfiguracja środowiska na RPi 3B, kompilacja bazowego potoku C++ / OpenCV, testy sterownika `v4l2-ctl`.
+* [ x ] **Etap 1 (Setup):** Konfiguracja środowiska na RPi 3B, kompilacja bazowego potoku C++ / OpenCV, testy sterownika `v4l2-ctl`.
 * [ ] **Etap 2 (Kalibracja):** Dodanie narzędzia do strojenia progów YCrCb w trudnych warunkach oświetleniowych.
 * [ ] **Etap 3 (Optymalizacja):** Wdrożenie detekcji ruchu (Motion Gating) pomijającej analizę przy statycznym obrazie oraz rozróżnianie gestu 0 (pięść) od 1 palca.
 * [ ] **Etap 4 (Wizualizacja):** Implementacja bufora stabilizującego gesty oraz nakładania ikon PNG (emotikonów) z obsługą przezroczystości.
