@@ -6,9 +6,31 @@ Szczegółowy opis założeń, architektury i harmonogramu znajduje się w dokum
 
 ## Główne cechy (obecna wersja)
 * **Niskie zużycie CPU:** Implementacja w C++17 kompilowana z flagami optymalizacji pod architekturę ARM Cortex-A53 (`-O3 -mcpu=cortex-a53`).
-* **Obsługa słabego oświetlenia:** Przetwarzanie w przestrzeni barw YCrCb z wyrównywaniem histogramu CLAHE wyłącznie na kanale jasności (`Y`) w rozdzielczości 320×240.
+* **Brak blokowania I/O:** Wielowątkowe przechwytywanie klatek (wzorzec Producent–Konsument) w rozdzielczości 320×240 przez V4L2.
+* **Motion Gating:** Automatyczne pomijanie ciężkiego przetwarzania obrazu przy statycznym kadrze (`cv::absdiff`).
+* **Obsługa słabego oświetlenia:** Przetwarzanie w przestrzeni barw YCrCb z wyrównywaniem histogramu CLAHE wyłącznie na kanale jasności (`Y`).
 * **Kalibracja na żywo:** Wbudowane suwaki OpenCV do strojenia maski koloru skóry pod konkretną kamerę i oświetlenie.
 * **Tryb Headless:** Możliwość kompilacji bez okien graficznych (`-DHEADLESS=ON`) na potrzeby pracy przez SSH i pomiarów wydajności.
+
+## Struktura repozytorium
+
+```text
+rpi-gesture-recognition/
+├── assets/                     # (Planowane) Przeskalowane ikony PNG dla gestów
+├── docs/
+│   └── POC.md                  # Dokumentacja Proof of Concept
+├── src/
+│   ├── camera.cpp              # Wielowątkowy odczyt klatek (V4L2)
+│   ├── camera.hpp
+│   ├── config.cpp              # Zapis i odczyt progów YCrCb
+│   ├── config.hpp
+│   ├── gesture_detector.cpp    # Motion Gating, CLAHE, segmentacja i analiza dłoni
+│   ├── gesture_detector.hpp
+│   └── main.cpp                # Pętla główna, obsługa GUI i trybu kalibracji
+├── .gitignore
+├── CMakeLists.txt
+└── README.md
+```
 
 ## Wymagania
 
