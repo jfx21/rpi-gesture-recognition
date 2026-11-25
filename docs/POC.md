@@ -49,6 +49,6 @@ System zostanie zweryfikowany w dwóch trybach — *headless* (czysty pomiar alg
 ## 6. Harmonogram realizacji (Etapy)
 * [ x ] **Etap 1 (Setup):** Konfiguracja środowiska na RPi 3B, kompilacja bazowego potoku C++ / OpenCV, testy sterownika `v4l2-ctl`.
 * [ x ] **Etap 2 (Kalibracja):** Dodanie narzędzia do strojenia progów YCrCb w trudnych warunkach oświetleniowych.
-* [ ] **Etap 3 (Optymalizacja):** Wdrożenie detekcji ruchu (Motion Gating) pomijającej analizę przy statycznym obrazie oraz rozróżnianie gestu 0 (pięść) od 1 palca.
+* [ x ] **Etap 3 (Optymalizacja):** Wdrożenie detekcji ruchu (Motion Gating) pomijającej analizę przy statycznym obrazie oraz rozróżnianie gestu 0 (pięść) od 1 palca.
 * [ ] **Etap 4 (Wizualizacja):** Implementacja bufora stabilizującego gesty oraz nakładania ikon PNG (emotikonów) z obsługą przezroczystości.
 * [ ] **Etap 5 (Benchmarki):** Zebranie pomiarów czasu przetwarzania i obciążenia CPU (tryb headless vs tryb z GUI), przygotowanie końcowego raportu.
