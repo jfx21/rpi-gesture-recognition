@@ -44,20 +44,6 @@ rpi-gesture-recognition/
 * `OpenCV 4.x` (`libopencv-dev`)
 * `v4l-utils` (do konfiguracji parametrów kamery)
 
-## Struktura repozytorium
-
-```text
-rpi-gesture-recognition/
-├── assets/                 # (Planowane) Przeskalowane ikony PNG dla gestów
-├── docs/
-│   └── POC.md              # Dokumentacja Proof of Concept
-├── src/
-│   └── main.cpp            # Kod źródłowy aplikacji
-├── .gitignore
-├── CMakeLists.txt
-└── README.md
-```
-
 ## Instalacja i kompilacja
 
 1. Zainstaluj wymagane pakiety systemowe:
